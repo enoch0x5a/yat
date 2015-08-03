@@ -1,0 +1,13 @@
+# -*- encoding: utf-8 -*-
+#!/usr/bin/env ruby
+require_relative "../lib/yat.rb"
+
+translator = YandexTranslator::XMLTranslator.new
+
+res = translator.getLangs(:ui => 'ru')
+
+res = translator.detect(:text => 'текст')
+
+res = translator.translate(:text => 'тестовый текст', :lang => 'en')
+
+p res
