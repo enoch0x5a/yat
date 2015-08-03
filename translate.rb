@@ -35,7 +35,7 @@ class GenericTranslator
   end
 
   def parse_code(code)
-    code = code.to_i if code.kind_of? String
+    code = code.to_i if code.respond_to? :to_i
     if !code.nil? && code != 200  #getLangs won't return 200:OK for now :_(
       raise ReturnCodeException, case code
         when 401
@@ -154,5 +154,3 @@ res = translator.getLangs(:ui => 'ru')
 res = translator.detect(:text => 'текст')
 
 res = translator.translate(:text => 'тестовый текст', :lang => 'en')
-
-p res
