@@ -2,7 +2,7 @@
 require 'net/http'
 
 module YandexTranslator
-
+ 
   class GenericTranslator
     def initialize
       require_relative 'config.rb'
@@ -20,14 +20,16 @@ module YandexTranslator
       make_request(:translate, return_as, params)
     end
 
+protected
     def make_request(function, format, params)
       if not [:json, :xml].member? format
         raise ArgumentError, "wrong format: #{format}"
       end
-      
+      key_hash = {:key => YandexTranslator::Options[:key]}
+      params = params.nil? ? key_hash : key_hash.merge(params)
       uri = URI(Options["#{format}_path".to_sym])
       uri.path += "/#{function}"
-      uri.query = URI.encode_www_form( {:key => YandexTranslator::Options[:key] }.merge params)
+      uri.query = URI.encode_www_form(params)
       Net::HTTP.start(uri.host, uri.port,
         :use_ssl => uri.scheme == 'https') do |https|
         request = Net::HTTP::Post.new(uri)
@@ -54,8 +56,9 @@ module YandexTranslator
           when 501
             "501: translation direction is not supported"
         end
-      end 
+      end
     end
+
   end #  class GenericTranslator
 
   require 'json'
@@ -63,7 +66,7 @@ module YandexTranslator
   class JSONTranslator < GenericTranslator
 
     alias :generic_getLangs :getLangs
-    def getLangs(params)
+    def getLangs(params = nil)
       response = generic_getLangs(:json, params)
       response = JSON.parse(response.body)
       parse_code(response["code"])
@@ -72,6 +75,8 @@ module YandexTranslator
 
     alias :generic_detect :detect
     def detect(params)
+      raise ArgumentError, "text parameter not specified" unless params.has_key?(:text)
+
       response = generic_detect(:json, params)
       response = JSON.parse(response.body)
       parse_code(response["code"])
@@ -80,6 +85,9 @@ module YandexTranslator
 
     alias :generic_translate :translate
     def translate(params)
+      raise ArgumentError, "text parameter not specified" unless params.has_key?(:text)
+      raise ArgumentError, "lang parameter not specified" unless params.has_key?(:lang)
+      
       response = generic_translate(:json, params)
       response = JSON.parse(response.body)
       parse_code(response["code"])
@@ -92,7 +100,7 @@ module YandexTranslator
 
   class XMLTranslator < GenericTranslator
     alias :generic_getLangs :getLangs
-    def getLangs(params)
+    def getLangs(params = nil)
       response = generic_getLangs(:xml, params)
 
       xmldoc = REXML::Document.new(response.body)
@@ -105,15 +113,20 @@ module YandexTranslator
       response["dirs"] = xmldoc.elements["Langs/dirs"].collect { |e|
         e.text
       }
-      response["langs"] = Hash.new
-      xmldoc.elements["Langs/langs"].each {|e|
-        response["langs"][e.attributes["key"]] = e.attributes["value"]
-      }
+      unless (langs = xmldoc.elements["Langs/langs"]).nil?
+        response["langs"] = Hash.new 
+        langs.each {|e|
+          response["langs"][e.attributes["key"]] = e.attributes["value"]
+        }
+      end
       response
     end
 
     alias :generic_detect :detect
     def detect(params)
+
+      raise ArgumentError, "text parameter not specified" unless params.has_key?(:text)
+
       response = generic_detect(:xml, params)
       xmldoc = REXML::Document.new(response.body)
 
@@ -130,6 +143,10 @@ module YandexTranslator
 
     alias :generic_translate :translate
     def translate(params)
+
+      raise ArgumentError, "text parameter not specified" unless params.has_key?(:text)
+      raise ArgumentError, "lang parameter not specified" unless params.has_key?(:lang)
+
       response = generic_translate(:xml, params)
       xmldoc = REXML::Document.new(response.body)
 

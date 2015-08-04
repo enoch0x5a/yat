@@ -2,12 +2,113 @@
 #!/usr/bin/env ruby
 require_relative "../lib/yat.rb"
 
+require 'getoptlong'
+
+$CHUNK_SIZE = 10000
+
+
+$EXIT_OK = 0
+$EXIT_CMDLINE = 3
+$EXIT_FAIL = 4
+
+def show_help
+  print File.basename(__FILE__, '.rb')
+  puts <<-HELP
+ [OPTIONS] file1 .. fileN
+
+    OPTIONS:
+      --help              print this out
+      -h
+
+      --to                LANGUAGE to translate to (e.g. "ru")
+      
+      --list-languages    prints list of supported languages
+      -l
+
+    NOTICE:
+    LANGUAGE must be one of https://translate.yandex.ru supported languages
+    abbreviations. 
+
+  HELP
+end
+
+opts = GetoptLong.new(
+  [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
+  [ '--to', GetoptLong::REQUIRED_ARGUMENT],
+  [ '--list-languages', '-l', GetoptLong::NO_ARGUMENT],
+  [ '--commercial-key', GetoptLong::NO_ARGUMENT]
+)
+
+to_lang = nil
+list_languages = false
+commercial_version = false
+
+opts.each { |opt, arg| 
+  case opt
+  when '--help'
+    show_help
+    exit($EXIT_OK)
+  when '--list-languages'
+    list_languages = true
+  when '--to'
+    to_lang = arg
+  when '--commercial_version'
+    commercial_version = true
+  end
+}
+
+if ARGV.length == 0
+  puts "no files given, nothing to do: quit"
+  puts
+  show_help
+  exit($EXIT_CMDLINE)
+end
+
+files = Array.new
+while ARGV.length > 0 do
+  files << open(ARGV.shift, 'r')
+end
+
 translator = YandexTranslator::XMLTranslator.new
 
-res = translator.getLangs(:ui => 'ru')
+begin
+  if list_languages
+    res = translator.getLangs(ui: 'en')
+    puts <<-EOF
 
-res = translator.detect(:text => 'текст')
+    //====================\\\\ 
+    ||Supported LANGUAGES || 
+    \\\\====================//
 
-res = translator.translate(:text => 'тестовый текст', :lang => 'en')
+    EOF
+    res["langs"].each { |short, long| puts "#{short}=>#{long} " }
+    exit($EXIT_OK)
+  end
 
-p res
+  raise GetoptLong::MissingArgument, 
+    "Please, specify language for output" if to_lang.nil?
+
+  files.each do |fd|
+    puts fd.basename
+    while text.length > $CHUNK_SIZE
+      text = fd.read($CHUNK_SIZE)
+      $stdout << translator.translate(text: text, lang: to_lang)['text']
+    end
+  end
+
+  at_exit do
+    files.each {|fd| fd.close } unless files.empty?
+  end
+
+rescue GetoptLong::MissingArgument => exc
+  print "Error: "
+  puts exc.message
+  puts
+  show_help
+  exit($EXIT_CMDLINE)
+
+rescue YandexTranslator::ReturnCodeException => exc
+  print "Error:"
+  puts exc.message
+  exit($EXIT_FAIL)
+end
