@@ -22,7 +22,7 @@ def show_help
       --to                LANGUAGE to translate to (e.g. "ru")
       
       --list-languages    prints list of supported languages
-      -l
+      -l                  --to can be specified to get languages translations
 
     NOTICE:
     LANGUAGE must be one of https://translate.yandex.ru supported languages
@@ -34,12 +34,13 @@ end
 opts = GetoptLong.new(
   [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
   [ '--to', GetoptLong::REQUIRED_ARGUMENT],
-  [ '--list-languages', '-l', GetoptLong::NO_ARGUMENT]
+  [ '--list-languages', '-l', GetoptLong::NO_ARGUMENT],
+  [ '--quiet', '-q', GetoptLong::NO_ARGUMENT]
 )
 
 to_lang = nil
 list_languages = false
-commercial_version = false
+quiet = false
 
 opts.each { |opt, arg| 
   case opt
@@ -50,6 +51,8 @@ opts.each { |opt, arg|
     list_languages = true
   when '--to'
     to_lang = arg
+  when '--quiet'
+    quiet = true
   end
 }
 
@@ -69,14 +72,18 @@ translator = YandexTranslator::XMLTranslator.new
 
 begin
   if list_languages
-    res = translator.getLangs(ui: 'en')
-    puts <<-EOF
+    res = translator.getLangs(ui: to_lang || 'en')
+
+    unless quiet
+      puts <<-EOF
 
     //====================\\\\ 
     ||Supported LANGUAGES || 
     \\\\====================//
 
-    EOF
+      EOF
+    end
+
     res["langs"].each { |short, long| puts "#{short}=>#{long} " }
     exit($EXIT_OK)
   end
@@ -85,7 +92,7 @@ begin
     "Please, specify language for output" if to_lang.nil?
 
   files.each do |fd|
-    puts File.basename fd.path
+    puts File.basename fd.path unless quiet
     while text = fd.read($CHUNK_SIZE)
       $stdout << translator.translate(text: text, lang: to_lang)['text']
     end
