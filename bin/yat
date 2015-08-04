@@ -1,11 +1,10 @@
-# -*- encoding: utf-8 -*-
 #!/usr/bin/env ruby
+# -*- encoding: utf-8 -*-
 require_relative "../lib/yat.rb"
 
 require 'getoptlong'
 
 $CHUNK_SIZE = 10000
-
 
 $EXIT_OK = 0
 $EXIT_CMDLINE = 3
@@ -35,8 +34,7 @@ end
 opts = GetoptLong.new(
   [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
   [ '--to', GetoptLong::REQUIRED_ARGUMENT],
-  [ '--list-languages', '-l', GetoptLong::NO_ARGUMENT],
-  [ '--commercial-key', GetoptLong::NO_ARGUMENT]
+  [ '--list-languages', '-l', GetoptLong::NO_ARGUMENT]
 )
 
 to_lang = nil
@@ -52,12 +50,10 @@ opts.each { |opt, arg|
     list_languages = true
   when '--to'
     to_lang = arg
-  when '--commercial_version'
-    commercial_version = true
   end
 }
 
-if ARGV.length == 0
+unless list_languages || ARGV.length != 0
   puts "no files given, nothing to do: quit"
   puts
   show_help
@@ -89,9 +85,8 @@ begin
     "Please, specify language for output" if to_lang.nil?
 
   files.each do |fd|
-    puts fd.basename
-    while text.length > $CHUNK_SIZE
-      text = fd.read($CHUNK_SIZE)
+    puts File.basename fd.path
+    while text = fd.read($CHUNK_SIZE)
       $stdout << translator.translate(text: text, lang: to_lang)['text']
     end
   end
@@ -108,7 +103,7 @@ rescue GetoptLong::MissingArgument => exc
   exit($EXIT_CMDLINE)
 
 rescue YandexTranslator::ReturnCodeException => exc
-  print "Error:"
+  print "Error: "
   puts exc.message
   exit($EXIT_FAIL)
 end
