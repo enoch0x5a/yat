@@ -37,10 +37,10 @@ protected
       end
     end
 
-    def parse_code(code)
-      code = code.to_i if code.respond_to? :to_i
-      if !code.nil? && code != 200  #getLangs won't return 200:OK for now :_(
-        raise YandexTranslator::ReturnCodeException, case code
+    def error_check(return_code)
+      return_code = return_code.to_i if return_code.respond_to? :to_i
+      if !return_code.nil? && return_code != 200  #getLangs won't return 200:OK for now :_(
+        raise YandexTranslator::ReturnCodeException, case return_code
           when 401
             "401: wrong api key"
           when 402
@@ -69,7 +69,7 @@ protected
     def getLangs(params = nil)
       response = generic_getLangs(:json, params)
       response = JSON.parse(response.body)
-      parse_code(response["code"])
+      error_check(response["code"])
       response
     end
 
@@ -79,7 +79,7 @@ protected
 
       response = generic_detect(:json, params)
       response = JSON.parse(response.body)
-      parse_code(response["code"])
+      error_check(response["code"])
       response
     end
 
@@ -90,7 +90,7 @@ protected
       
       response = generic_translate(:json, params)
       response = JSON.parse(response.body)
-      parse_code(response["code"])
+      error_check(response["code"])
       response
     end
   end  #  class JSONTranslator
@@ -106,7 +106,7 @@ protected
       xmldoc = REXML::Document.new(response.body)
 
       if error = xmldoc.elements["Error"]
-        parse_code(error.attributes['code'])
+        error_check(error.attributes['code'])
       end
 
       response = Hash.new
@@ -131,7 +131,7 @@ protected
       xmldoc = REXML::Document.new(response.body)
 
       if error = xmldoc.elements["Error"]
-        parse_code(error.attributes['code'])
+        error_check(error.attributes['code'])
       end
 
       response = Hash.new
@@ -151,7 +151,7 @@ protected
       xmldoc = REXML::Document.new(response.body)
 
       if error = xmldoc.elements["Error"]
-        parse_code(error.attributes['code'])
+        error_check(error.attributes['code'])
       end
 
       response = Hash.new

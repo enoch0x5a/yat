@@ -31,77 +31,76 @@ def show_help
   HELP
 end
 
-opts = GetoptLong.new(
-  [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
-  [ '--to', GetoptLong::REQUIRED_ARGUMENT],
-  [ '--list-languages', '-l', GetoptLong::NO_ARGUMENT],
-  [ '--quiet', '-q', GetoptLong::NO_ARGUMENT]
-)
+def list_languages(translator, quiet)
 
-to_lang = nil
-list_languages = false
-quiet = false
+  raise ArgumentError, 
+    "list_languages: #{__FILE__}: #{__LINE__}" \
+    "wrong argument: #{translator}" \
+    unless translator.kind_of? YandexTranslator::GenericTranslator
 
-opts.each { |opt, arg| 
-  case opt
-  when '--help'
-    show_help
-    exit($EXIT_OK)
-  when '--list-languages'
-    list_languages = true
-  when '--to'
-    to_lang = arg
-  when '--quiet'
-    quiet = true
+  res = translator.getLangs(ui: to_lang || 'en')
+
+  unless quiet
+    puts <<-EOF
+
+  //====================\\\\
+  ||Supported LANGUAGES ||
+  \\\\====================//
+
+    EOF
   end
-}
 
-unless list_languages || ARGV.length != 0
-  puts "no files given, nothing to do: quit"
-  puts
-  show_help
-  exit($EXIT_CMDLINE)
+  res["langs"].each { |short, long| puts "#{short}=>#{long} " }
+  exit($EXIT_OK)
 end
-
-files = Array.new
-while ARGV.length > 0 do
-  files << open(ARGV.shift, 'r')
-end
-
-translator = YandexTranslator::XMLTranslator.new
 
 begin
+  opts = GetoptLong.new(
+    [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
+    [ '--to', GetoptLong::REQUIRED_ARGUMENT],
+    [ '--list-languages', '-l', GetoptLong::NO_ARGUMENT],
+    [ '--quiet', '-q', GetoptLong::NO_ARGUMENT]
+  )
+
+  to_lang = nil
+  list_languages = false
+  quiet = false
+
+  opts.each { |opt, arg| 
+    case opt
+    when '--help'
+      show_help
+      exit($EXIT_OK)
+    when '--list-languages'
+      list_languages = true
+    when '--to'
+      to_lang = arg
+    when '--quiet'
+      quiet = true
+    end
+  }
+
+  if to_lang.nil?
+    raise GetoptLong::MissingArgument, "Please, specify language for output" 
+  end
+
+  translator = YandexTranslator::XMLTranslator.new
+
   if list_languages
-    res = translator.getLangs(ui: to_lang || 'en')
+    list_languages(translator, quiet)
+  end
 
-    unless quiet
-      puts <<-EOF
-
-    //====================\\\\ 
-    ||Supported LANGUAGES || 
-    \\\\====================//
-
-      EOF
+  str = String.new
+  ARGF.each_line do |line|
+    while str.length + line.length > $CHUNK_SIZE
+      str += line[0, $CHUNK_SIZE - str.length]
+      $stdout << translator.translate(text: str, lang: to_lang)['text']
+      str = line[$CHUNK_SIZE - str.length, $CHUNK_SIZE ]
     end
-
-    res["langs"].each { |short, long| puts "#{short}=>#{long} " }
-    exit($EXIT_OK)
+      str += line
   end
-
-  raise GetoptLong::MissingArgument, 
-    "Please, specify language for output" if to_lang.nil?
-
-  files.each do |fd|
-    puts File.basename fd.path unless quiet
-    while text = fd.read($CHUNK_SIZE)
-      $stdout << translator.translate(text: text, lang: to_lang)['text']
-    end
-  end
-
-  at_exit do
-    files.each {|fd| fd.close } unless files.empty?
-  end
-
+  $stdout << translator.translate(text: str, lang: to_lang)['text'] unless str.empty?
+    
 rescue GetoptLong::MissingArgument => exc
   print "Error: "
   puts exc.message
