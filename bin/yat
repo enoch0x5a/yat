@@ -10,6 +10,8 @@ $EXIT_OK = 0
 $EXIT_CMDLINE = 3
 $EXIT_FAIL = 4
 
+raise "provide api key in config file" if YandexTranslator::Options[:key].nil?
+
 def show_help
   print File.basename(__FILE__, '.rb')
   puts <<-HELP
@@ -84,7 +86,7 @@ begin
     raise GetoptLong::MissingArgument, "Please, specify language for output" 
   end
 
-  translator = YandexTranslator::XMLTranslator.new
+  translator = YandexTranslator::JSONTranslator.new
 
   if list_languages
     list_languages(translator, quiet)
@@ -93,14 +95,14 @@ begin
   str = String.new
   ARGF.each_line do |line|
     while str.length + line.length > $CHUNK_SIZE
-      str += line[0, $CHUNK_SIZE - str.length]
-      $stdout << translator.translate(text: str, lang: to_lang)['text']
-      str = line[$CHUNK_SIZE - str.length, $CHUNK_SIZE ]
+      str, line = str + line[0, $CHUNK_SIZE], line[$CHUNK_SIZE - str.length, line.length]
+      $stdout << translator.translate(text: str, lang: to_lang)
+      str.clear
     end
       str += line
   end
-  $stdout << translator.translate(text: str, lang: to_lang)['text'] unless str.empty?
-    
+  $stdout << translator.translate(text: str, lang: to_lang) unless str.empty?
+
 rescue GetoptLong::MissingArgument => exc
   print "Error: "
   puts exc.message

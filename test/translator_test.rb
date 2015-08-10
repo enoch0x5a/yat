@@ -59,11 +59,11 @@ shared_examples 'expected behavior' do |translator|
   end
 
   it 'should return lang on #detect' do
-    expect(translator.detect(text: "test")["lang"]).to eq('en')
+    expect(translator.detect(text: "test")).to eq('en')
   end
 
   it "should return 'test text' on #translate" do
-    expect(translator.translate(text: 'тестовый текст', lang: 'en')["text"]).to \
+    expect(translator.translate(text: 'тестовый текст', lang: 'en')).to \
       eq('test text')
   end
 end

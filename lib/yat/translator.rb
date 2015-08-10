@@ -2,27 +2,36 @@
 require 'net/http'
 
 module YandexTranslator
- 
+  FORMAT_ARRAY = [:xml, :json]
+
   class GenericTranslator
+    attr_reader :response
+
     def initialize
       require_relative 'config.rb'
     end
 
     def getLangs(return_as, params)
-      make_request(:getLangs, return_as, params)
+      response = make_request(:getLangs, return_as, params)
+      @response = response.body
+      response
     end
 
     def detect(return_as, params)
-      make_request(:detect, return_as, params)
+      response = make_request(:detect, return_as, params)
+      @response = response.body
+      response
     end
 
     def translate(return_as, params)
-      make_request(:translate, return_as, params)
+      response = make_request(:translate, return_as, params)
+      @response = response.body
+      response
     end
 
 protected
     def make_request(function, format, params)
-      if not [:json, :xml].member? format
+      if not FORMAT_ARRAY.member? format
         raise ArgumentError, "wrong format: #{format}"
       end
       key_hash = {:key => YandexTranslator::Options[:key]}
@@ -39,7 +48,7 @@ protected
 
     def error_check(return_code)
       return_code = return_code.to_i if return_code.respond_to? :to_i
-      if !return_code.nil? && return_code != 200  #getLangs won't return 200:OK for now :_(
+      unless return_code.nil? && return_code == 200  #getLangs won't return 200:OK for now :_(
         raise YandexTranslator::ReturnCodeException, case return_code
           when 401
             "401: wrong api key"
@@ -65,33 +74,30 @@ protected
 
   class JSONTranslator < GenericTranslator
 
-    alias :generic_getLangs :getLangs
     def getLangs(params = nil)
-      response = generic_getLangs(:json, params)
+      response = super(:json, params)
       response = JSON.parse(response.body)
       error_check(response["code"])
       response
     end
 
-    alias :generic_detect :detect
     def detect(params)
       raise ArgumentError, "text parameter not specified" unless params.has_key?(:text)
 
-      response = generic_detect(:json, params)
+      response = super(:json, params)
       response = JSON.parse(response.body)
       error_check(response["code"])
-      response
+      response["lang"]
     end
 
-    alias :generic_translate :translate
     def translate(params)
       raise ArgumentError, "text parameter not specified" unless params.has_key?(:text)
       raise ArgumentError, "lang parameter not specified" unless params.has_key?(:lang)
       
-      response = generic_translate(:json, params)
+      response = super(:json, params)
       response = JSON.parse(response.body)
       error_check(response["code"])
-      response
+      response["text"]
     end
   end  #  class JSONTranslator
 
@@ -99,9 +105,10 @@ protected
   include REXML
 
   class XMLTranslator < GenericTranslator
-    alias :generic_getLangs :getLangs
+
     def getLangs(params = nil)
-      response = generic_getLangs(:xml, params)
+
+      response = super(:xml, params)
 
       xmldoc = REXML::Document.new(response.body)
 
@@ -122,44 +129,44 @@ protected
       response
     end
 
-    alias :generic_detect :detect
     def detect(params)
 
       raise ArgumentError, "text parameter not specified" unless params.has_key?(:text)
 
-      response = generic_detect(:xml, params)
+      response = super(:xml, params)
       xmldoc = REXML::Document.new(response.body)
 
       if error = xmldoc.elements["Error"]
         error_check(error.attributes['code'])
       end
 
-      response = Hash.new
-      response["code"] = xmldoc.root.attributes["code"]
-      response["lang"] = xmldoc.root.attributes["lang"]
+      # response = Hash.new
+      # response["code"] = xmldoc.root.attributes["code"]
+      # response["lang"] = xmldoc.root.attributes["lang"]
 
-      response
+      # response
+      xmldoc.root.attributes["lang"]
     end
 
-    alias :generic_translate :translate
     def translate(params)
 
       raise ArgumentError, "text parameter not specified" unless params.has_key?(:text)
       raise ArgumentError, "lang parameter not specified" unless params.has_key?(:lang)
 
-      response = generic_translate(:xml, params)
+      response = super(:xml, params)
       xmldoc = REXML::Document.new(response.body)
 
       if error = xmldoc.elements["Error"]
         error_check(error.attributes['code'])
       end
 
-      response = Hash.new
-      response["code"] = xmldoc.root.attributes["code"]
-      response["lang"] = xmldoc.root.attributes["lang"]
-      response["text"] = xmldoc.elements["Translation/text"].text
+      # response = Hash.new
+      # response["code"] = xmldoc.root.attributes["code"]
+      # response["lang"] = xmldoc.root.attributes["lang"]
+      # response["text"] = xmldoc.elements["Translation/text"].text
+      xmldoc.elements["Translation/text"].text
 
-      response
+      # response
     end
   end  #  class XMLTranslator
 end  #  module YandexTranslator
