@@ -2,54 +2,41 @@
 require 'net/http'
 
 module YandexTranslator
-  FORMAT_ARRAY = [:xml, :json]
 
   class GenericTranslator
     attr_reader :response
 
     def initialize
       require_relative 'config.rb'
+      @response = nil
     end
 
-    def getLangs(return_as, params)
-      response = make_request(:getLangs, return_as, params)
-      @response = response.body
-      response
-    end
-
-    def detect(return_as, params)
-      response = make_request(:detect, return_as, params)
-      @response = response.body
-      response
-    end
-
-    def translate(return_as, params)
-      response = make_request(:translate, return_as, params)
-      @response = response.body
-      response
+private
+    def method_missing(api_function, *args)
+      format = args.shift
+      @response = make_request(api_function, format, *args)
     end
 
 protected
-    def make_request(function, format, params)
-      if not FORMAT_ARRAY.member? format
-        raise ArgumentError, "wrong format: #{format}"
-      end
+
+    def make_request(function, format, params = nil)
+      raise ArgumentError, "wrong format: #{format}" if YandexTranslator::Options["#{format}_path".to_sym].nil?
+
       key_hash = {:key => YandexTranslator::Options[:key]}
       params = params.nil? ? key_hash : key_hash.merge(params)
-      uri = URI(Options["#{format}_path".to_sym])
+      uri = URI(YandexTranslator::Options["#{format}_path".to_sym])
       uri.path += "/#{function}"
-      uri.query = URI.encode_www_form(params)
+      
       Net::HTTP.start(uri.host, uri.port,
         :use_ssl => uri.scheme == 'https') do |https|
         request = Net::HTTP::Post.new(uri)
-        response = https.request(request)
+        @response = https.request(request, URI.encode_www_form(params))
       end
     end
 
     def error_check(return_code)
-      return_code = return_code.to_i if return_code.respond_to? :to_i
-      unless return_code.nil? && return_code == 200  #getLangs won't return 200:OK for now :_(
-        raise YandexTranslator::ReturnCodeException, case return_code
+      unless return_code.nil? || return_code == 200
+        raise YandexTranslator::ReturnCodeException, case return_code.to_i
           when 401
             "401: wrong api key"
           when 402
@@ -97,6 +84,7 @@ protected
       response = super(:json, params)
       response = JSON.parse(response.body)
       error_check(response["code"])
+      return response["text"].inject {|elm, sum| elm + sum} if response["text"].is_a? Array
       response["text"]
     end
   end  #  class JSONTranslator
@@ -140,11 +128,6 @@ protected
         error_check(error.attributes['code'])
       end
 
-      # response = Hash.new
-      # response["code"] = xmldoc.root.attributes["code"]
-      # response["lang"] = xmldoc.root.attributes["lang"]
-
-      # response
       xmldoc.root.attributes["lang"]
     end
 
@@ -160,13 +143,8 @@ protected
         error_check(error.attributes['code'])
       end
 
-      # response = Hash.new
-      # response["code"] = xmldoc.root.attributes["code"]
-      # response["lang"] = xmldoc.root.attributes["lang"]
-      # response["text"] = xmldoc.elements["Translation/text"].text
       xmldoc.elements["Translation/text"].text
 
-      # response
     end
   end  #  class XMLTranslator
 end  #  module YandexTranslator

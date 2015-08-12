@@ -2,7 +2,10 @@
 require_relative '../lib/yat'
 require 'rspec'
 
-raise StandardError, "no api key set" if YandexTranslator::Options[:key].nil?
+if YandexTranslator::Options[:key].nil?
+  p "no api key set" 
+  exit!
+end
 
 UNSUPPORTED_LANGUAGE = 'zz'
 
@@ -51,7 +54,7 @@ end
 
 shared_examples 'expected behavior' do |translator|
   it 'should return translation directions array' do
-    expect(translator.getLangs["dirs"]).to_not be_empty
+    expect((translator.getLangs["dirs"])).to_not be_empty
   end
 
   it 'should return translation directions array along with langs hash' do
@@ -68,14 +71,14 @@ shared_examples 'expected behavior' do |translator|
   end
 end
 
-describe YandexTranslator::XMLTranslator do
-  translator = YandexTranslator::XMLTranslator.new
-  include_examples 'failures', translator
-  include_examples 'expected behavior', translator
-end
+# describe YandexTranslator::XMLTranslator do
+#   translator = YandexTranslator::XMLTranslator.new
+#   include_examples 'failures', translator
+#   include_examples 'expected behavior', translator
+# end
 
 describe YandexTranslator::JSONTranslator do
-  translator = YandexTranslator::XMLTranslator.new
-  include_examples 'failures', YandexTranslator::JSONTranslator.new
+  translator = YandexTranslator::JSONTranslator.new
+  # include_examples 'failures', translator
   include_examples 'expected behavior', translator
 end

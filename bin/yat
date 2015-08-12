@@ -7,28 +7,31 @@ require 'getoptlong'
 $CHUNK_SIZE = 10000
 
 $EXIT_OK = 0
-$EXIT_CMDLINE = 3
-$EXIT_FAIL = 4
+$EXIT_ECMDLINE = 3
+$EXIT_EFAIL = 4
 
-raise "provide api key in config file" if YandexTranslator::Options[:key].nil?
+raise "provide api key in lib/yat/config.rb file" if YandexTranslator::Options[:key].nil?
 
 def show_help
   print File.basename(__FILE__, '.rb')
   puts <<-HELP
- [OPTIONS] file1 .. fileN
+  --to LANGUAGE [OPTIONS] [file1 .. fileN]
 
     OPTIONS:
       --help              print this out
       -h
 
-      --to                LANGUAGE to translate to (e.g. "ru")
+      --to LANGUAGE       LANGUAGE to translate to (e.g. "ru")
       
       --list-languages    prints list of supported languages
       -l                  --to can be specified to get languages translations
 
+      Files are optional: if none given text grabbed from standard input.
+      Text can be provided through piped input (e.g. `echo "test" | yat --to af`)
+
     NOTICE:
     LANGUAGE must be one of https://translate.yandex.ru supported languages
-    abbreviations. 
+    abbreviations. See --list-languages option.
 
   HELP
 end
@@ -91,8 +94,9 @@ begin
   if list_languages
     list_languages(translator, quiet)
   end
-
+  
   str = String.new
+
   ARGF.each_line do |line|
     while str.length + line.length > $CHUNK_SIZE
       str, line = str + line[0, $CHUNK_SIZE], line[$CHUNK_SIZE - str.length, line.length]
@@ -103,15 +107,17 @@ begin
   end
   $stdout << translator.translate(text: str, lang: to_lang) unless str.empty?
 
-rescue GetoptLong::MissingArgument => exc
-  print "Error: "
-  puts exc.message
-  puts
+rescue GetoptLong::MissingArgument, GetoptLong::InvalidOption
+  $stderr.puts
   show_help
-  exit($EXIT_CMDLINE)
+  exit($EXIT_ECMDLINE)
 
 rescue YandexTranslator::ReturnCodeException => exc
-  print "Error: "
-  puts exc.message
-  exit($EXIT_FAIL)
+  $stderr.print "Error: "
+  $stderr.puts exc.message
+  exit($EXIT_EFAIL)
+
+rescue Errno::ENOENT => exc
+  $stderr.puts exc.message
+  exit($EXIT_ECMDLINE)
 end
