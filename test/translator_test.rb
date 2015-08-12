@@ -71,14 +71,14 @@ shared_examples 'expected behavior' do |translator|
   end
 end
 
-# describe YandexTranslator::XMLTranslator do
-#   translator = YandexTranslator::XMLTranslator.new
-#   include_examples 'failures', translator
-#   include_examples 'expected behavior', translator
-# end
+describe YandexTranslator::XMLTranslator do
+  translator = YandexTranslator::XMLTranslator.new
+  include_examples 'failures', translator
+  include_examples 'expected behavior', translator
+end
 
 describe YandexTranslator::JSONTranslator do
   translator = YandexTranslator::JSONTranslator.new
-  # include_examples 'failures', translator
+  include_examples 'failures', translator
   include_examples 'expected behavior', translator
 end

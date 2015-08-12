@@ -4,7 +4,7 @@ require_relative "../lib/yat.rb"
 
 require 'getoptlong'
 
-$CHUNK_SIZE = 10000
+CHUNK_SIZE = 10000
 
 $EXIT_OK = 0
 $EXIT_ECMDLINE = 3
