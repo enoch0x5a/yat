@@ -36,7 +36,7 @@ def show_help
   HELP
 end
 
-def list_languages(translator, quiet)
+def list_languages(translator, quiet, to_lang)
 
   raise ArgumentError, 
     "list_languages: #{__FILE__}: #{__LINE__}" \
@@ -92,7 +92,7 @@ begin
   translator = YandexTranslator::JSONTranslator.new
 
   if list_languages
-    list_languages(translator, quiet)
+    list_languages(translator, quiet, to_lang)
   end
   
   str = String.new
