@@ -110,7 +110,6 @@ begin
     YandexTranslator.configuration.api_key = key unless key.nil?
   else
     YandexTranslator.configure.api_key = key
-      # .api_key = 'trnsl.1.1.20150727T094607Z.fa989f7cb7c98817.f0abcceb21d32fa734cdcba406cfc78053f78484'
   end
 
   if make_config
