@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
-# -*- encoding: utf-8 -*-
 require_relative "../lib/yat.rb"
 
+require 'yaml'
 require 'getoptlong'
 
 CHUNK_SIZE = 10000
@@ -10,21 +10,31 @@ $EXIT_OK = 0
 $EXIT_ECMDLINE = 3
 $EXIT_EFAIL = 4
 
-raise "provide api key in lib/yat/config.rb file" if YandexTranslator::Options[:key].nil?
-
 def show_help
   print File.basename(__FILE__, '.rb')
   puts <<-HELP
   --to LANGUAGE [OPTIONS] [file1 .. fileN]
 
     OPTIONS:
-      --help              print this out
+      --help                print this out
       -h
 
-      --to LANGUAGE       LANGUAGE to translate to (e.g. "ru")
+      --quiet               turns off additional output
+
+      --to LANGUAGE         LANGUAGE to translate to (e.g. "ru")
       
-      --list-languages    prints list of supported languages
-      -l                  --to can be specified to get languages translations
+      --list-languages      prints list of supported languages
+      -l                    --to can be specified to get languages translations
+
+      --key KEY             yandex translator api key
+      -k KEY
+
+      --make-config [FILE]  generate YAML config
+      -m [FILE]             if FILE not given, but -c option provided, it's MissingArgument
+                            used instead
+      
+      --config FILE         read in config from FILE
+      -c FILE
 
       Files are optional: if none given text grabbed from standard input.
       Text can be provided through piped input (e.g. `echo "test" | yat --to af`)
@@ -37,11 +47,6 @@ def show_help
 end
 
 def list_languages(translator, quiet, to_lang)
-
-  raise ArgumentError, 
-    "list_languages: #{__FILE__}: #{__LINE__}" \
-    "wrong argument: #{translator}" \
-    unless translator.kind_of? YandexTranslator::GenericTranslator
 
   res = translator.getLangs(ui: to_lang || 'en')
 
@@ -64,18 +69,32 @@ begin
     [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
     [ '--to', GetoptLong::REQUIRED_ARGUMENT],
     [ '--list-languages', '-l', GetoptLong::NO_ARGUMENT],
-    [ '--quiet', '-q', GetoptLong::NO_ARGUMENT]
+    [ '--quiet', '-q', GetoptLong::NO_ARGUMENT],
+    [ '--key', '-k', GetoptLong::REQUIRED_ARGUMENT],
+    [ '--make-config', '-m', GetoptLong::OPTIONAL_ARGUMENT],
+    [ '--config', '-c', GetoptLong::REQUIRED_ARGUMENT]
   )
 
   to_lang = nil
   list_languages = false
   quiet = false
+  key = nil
+  make_config = false
+  config_file = nil
+  new_config = nil
 
   opts.each { |opt, arg| 
     case opt
     when '--help'
       show_help
       exit($EXIT_OK)
+    when '--key'
+      key = arg
+    when '--make-config'
+      make_config = true
+      new_config = arg
+    when '--config'
+      config_file = arg
     when '--list-languages'
       list_languages = true
     when '--to'
@@ -85,8 +104,19 @@ begin
     end
   }
 
-  if to_lang.nil?
-    raise GetoptLong::MissingArgument, "Please, specify language for output" 
+  unless config_file.nil?
+    YandexTranslator.configuration = YAML.load(File.read(config_file))
+    YandexTranslator.configuration.api_key = key unless key.nil?
+  else
+    YandexTranslator.configure.api_key = key
+      # .api_key = 'trnsl.1.1.20150727T094607Z.fa989f7cb7c98817.f0abcceb21d32fa734cdcba406cfc78053f78484'
+  end
+
+  if make_config   
+    Dir.mkdir(new_config_dir) unless new_config.nil? || Dir.exist?(new_config_dir = File.dirname(new_config))
+    File.open(new_config || config_file, "w") { |file|
+      file.write(YAML.dump(YandexTranslator.configuration))
+    }
   end
 
   translator = YandexTranslator::JSONTranslator.new
@@ -94,12 +124,16 @@ begin
   if list_languages
     list_languages(translator, quiet, to_lang)
   end
+
+  if to_lang.nil?
+    raise GetoptLong::MissingArgument, "Please, specify language for output" 
+  end
   
   str = String.new
 
   ARGF.each_line do |line|
-    while str.length + line.length > $CHUNK_SIZE
-      str, line = str + line[0, $CHUNK_SIZE], line[$CHUNK_SIZE - str.length, line.length]
+    while str.length + line.length > CHUNK_SIZE
+      str, line = str + line[0, CHUNK_SIZE], line[CHUNK_SIZE - str.length, line.length]
       $stdout << translator.translate(text: str, lang: to_lang)
       str.clear
     end
@@ -113,8 +147,15 @@ rescue GetoptLong::MissingArgument, GetoptLong::InvalidOption
   exit($EXIT_ECMDLINE)
 
 rescue YandexTranslator::ReturnCodeException => exc
-  $stderr.print "Error: "
-  $stderr.puts exc.message
+  $stderr.puts "Error: #{exc.message}"
+  exit($EXIT_EFAIL)
+
+rescue YandexTranslator::ApiFunctionNotSupported => exc
+  $stderr.puts "Error: #{exc.message}"
+  exit($EXIT_EFAIL)
+
+rescue YandexTranslator::NoApiKey => exc
+  $stderr.puts "Error: #{exc.message}"
   exit($EXIT_EFAIL)
 
 rescue Errno::ENOENT => exc

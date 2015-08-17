@@ -1,8 +1,21 @@
-# -*- encoding: utf-8 -*-
 module YandexTranslator
-  Options = {
-    :key => 'trnsl.1.1.20150727T094607Z.fa989f7cb7c98817.f0abcceb21d32fa734cdcba406cfc78053f78484',  #provide api key here
-    :json_path => 'https://translate.yandex.net/api/v1.5/tr.json',
-    :xml_path => 'https://translate.yandex.net/api/v1.5/tr'
-  }
+  class << self
+    attr_accessor :configuration
+  end
+
+  def self.configure
+    self.configuration ||= Configuration.new
+    yield(self.configuration) rescue self.configuration
+  end
+
+  class Configuration
+    attr_accessor :api_key, :xml_path, :json_path
+
+    def initialize
+      @api_key = nil
+      @json_path = 'https://translate.yandex.net/api/v1.5/tr.json'
+      @xml_path = 'https://translate.yandex.net/api/v1.5/tr'
+    end
+  end
+
 end

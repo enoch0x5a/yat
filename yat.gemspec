@@ -8,8 +8,11 @@ Gem::Specification.new do |s|
   s.files       = [
     "lib/yat/config.rb",
     "lib/yat/errors.rb",
-    "lib/yat/translator.rb",
-    "lib/yat.rb"
+    "lib/yat/json_translator.rb",
+    "lib/yat/xml_translator.rb",
+    "lib/yat/generic_translator.rb",
+    "lib/yat.rb",
+    ENV['HOME'] + '/.yat/config.rb'
 ]
   s.executables << "yat"
   s.license     = 'MIT'
