@@ -44,6 +44,7 @@ def show_help
     abbreviations. See --list-languages option.
 
   HELP
+
 end
 
 def list_languages(translator, quiet, to_lang)
@@ -112,8 +113,9 @@ begin
       # .api_key = 'trnsl.1.1.20150727T094607Z.fa989f7cb7c98817.f0abcceb21d32fa734cdcba406cfc78053f78484'
   end
 
-  if make_config   
+  if make_config
     Dir.mkdir(new_config_dir) unless new_config.nil? || Dir.exist?(new_config_dir = File.dirname(new_config))
+    new_config == '-' || new_config = config_file
     File.open(new_config || config_file, "w") { |file|
       file.write(YAML.dump(YandexTranslator.configuration))
     }
