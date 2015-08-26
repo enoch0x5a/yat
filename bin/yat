@@ -1,6 +1,5 @@
 #!/usr/bin/env ruby
-require_relative "../lib/yat.rb"
-
+require '../lib/yat.rb'
 require 'yaml'
 require 'getoptlong'
 
@@ -30,7 +29,7 @@ def show_help
       -k KEY
 
       --make-config [FILE]  generate YAML config
-      -m [FILE]             if FILE not given, but -c option provided, it's MissingArgument
+      -m [FILE]             if FILE not given, but -c option provided, it's argument
                             used instead
       
       --config FILE         read in config from FILE
@@ -49,18 +48,7 @@ end
 
 def list_languages(translator, quiet, to_lang)
 
-  res = translator.getLangs(ui: to_lang || 'en')
-
-  unless quiet
-    puts <<-EOF
-
-  //====================\\\\
-  ||Supported LANGUAGES ||
-  \\\\====================//
-
-    EOF
-  end
-
+  res = translator.get_languages(ui: to_lang || 'en').shift
   res["langs"].each { |short, long| puts "#{short}=>#{long} " }
   exit($EXIT_OK)
 end
@@ -110,18 +98,21 @@ begin
     YandexTranslator.configuration.api_key = key unless key.nil?
   else
     YandexTranslator.configure.api_key = key
+    
   end
+  raise GetoptLong::MissingArgument, "Please, specify api key" if YandexTranslator.configuration.api_key.nil?
 
   if make_config
     Dir.mkdir(new_config_dir) unless new_config.nil? || Dir.exist?(new_config_dir = File.dirname(new_config))
-    new_config == '-' || new_config = config_file
+
+    new_config = config_file if new_config.nil? || new_config.empty?
+    
     File.open(new_config || config_file, "w") { |file|
       file.write(YAML.dump(YandexTranslator.configuration))
     }
   end
 
-  translator = YandexTranslator::JSONTranslator.new
-
+  translator = YandexTranslator::Yat.new
   if list_languages
     list_languages(translator, quiet, to_lang)
   end
@@ -133,25 +124,15 @@ begin
   str = String.new
 
   ARGF.each_line do |line|
-    while str.length + line.length > CHUNK_SIZE
-      str, line = str + line[0, CHUNK_SIZE], line[CHUNK_SIZE - str.length, line.length]
-      $stdout << translator.translate(text: str, lang: to_lang)
-      str.clear
-    end
-      str += line
+    $stdout << translator.translate(text: line, lang: to_lang)["text"]
   end
-  $stdout << translator.translate(text: str, lang: to_lang) unless str.empty?
 
-rescue GetoptLong::MissingArgument, GetoptLong::InvalidOption
-  $stderr.puts
+rescue GetoptLong::MissingArgument, GetoptLong::InvalidOption => exc
+  $stderr.puts exc.message
   show_help
   exit($EXIT_ECMDLINE)
 
 rescue YandexTranslator::ReturnCodeException => exc
-  $stderr.puts "Error: #{exc.message}"
-  exit($EXIT_EFAIL)
-
-rescue YandexTranslator::ApiFunctionNotSupported => exc
   $stderr.puts "Error: #{exc.message}"
   exit($EXIT_EFAIL)
 

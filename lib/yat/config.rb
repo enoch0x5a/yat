@@ -9,12 +9,15 @@ module YandexTranslator
   end
 
   class Configuration
-    attr_accessor :api_key, :xml_path, :json_path
+    attr_accessor :api_key, :xml_path, :json_path, :host, :port, :chunk_size, :maximum_requests
 
     def initialize
+      @chunk_size = 10000
+      @maximum_requests = 10
       @api_key = nil
-      @json_path = 'https://translate.yandex.net/api/v1.5/tr.json'
-      @xml_path = 'https://translate.yandex.net/api/v1.5/tr'
+      @host = "https://translate.yandex.net"
+      @json_path = '/api/v1.5/tr.json'
+      @xml_path = '/api/v1.5/tr'
     end
   end
 
