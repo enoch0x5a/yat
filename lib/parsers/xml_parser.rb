@@ -26,7 +26,7 @@ module YandexTranslator
       end
       unless (element = xmldoc.elements["Langs/langs"]).nil?
         response["langs"] = Hash.new 
-        langs.each {|e|
+        element.each { |e|
           response["langs"][e.attributes["key"]] = e.attributes["value"]
         }
       end

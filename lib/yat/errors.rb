@@ -1,4 +1,4 @@
 module YandexTranslator
-  class ReturnCodeException < Exception; end
-  class NoApiKey < Exception; end
+  class ReturnCodeException < StandardError; end
+  class NoApiKey < StandardError; end
 end

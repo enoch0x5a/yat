@@ -5,12 +5,6 @@ module YandexTranslator
     include Celluloid
     include Celluloid::Notifications
 
-    # finalizer :finalize
-
-    # def finalize
-    #   p "generic dead!"
-    # end
-
     def initialize
       subscribe(:connection_response, :stash_response)
 
@@ -23,7 +17,7 @@ module YandexTranslator
     [:getLangs, :translate, :detect].each do |method|
       define_method(method) do |format, params|
        
-        if params && params.has_key?(:text)
+        if params && params.has_key?(:text) && params[:text].length > 0
           @request_estimate = (
             Float(params[:text].length) / 
             YandexTranslator.configuration.chunk_size

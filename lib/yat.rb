@@ -8,19 +8,27 @@ require TRANSLATOR_PATH + "connection"
 require PARSER_PATH + "json_parser"
 require PARSER_PATH + "xml_parser"
 
-
 require 'celluloid/current'
+require 'celluloid/logging'
 
 module YandexTranslator
   class Yat
     include Celluloid
     include Celluloid::Notifications
+    include Celluloid::Internals::Logger
 
-    # finalizer :finalize
+    finalizer :finalize
+    trap_exit :ambulance
 
-    # def finalize
-    #   p "i'm dying here!!"
-    # end
+    def ambulance(actor, reason)
+      warn "#{actor.inspect} died because of #{reason.inspect}" unless reason.nil?
+      signal :return
+    end
+
+    def finalize
+      @parse_loop.terminate
+      @translator.terminate if @translator.alive?
+    end
 
     def initialize(format = :json)
       subscribe(:translator_ready, :__receive_responses)
@@ -34,21 +42,28 @@ module YandexTranslator
     end
 
     def parse_loop
-      loop do 
+      loop do
         responses = wait :got_responses
         responses.each.with_index { |response, index| parser.async.parse(response.body, index) }
       end
     end
 
     def translate(params)
-      raise ArgumentError, "wrong or missing parameters: ':text' #{params}" unless params[:text]
-      raise ArgumentError, "wrong or missing parameters: ':lang' #{params}" unless params[:lang]
+      unless params[:text]
+        error "wrong or missing parameters: ':text'"
+        return nil
+      end
+      unless params[:lang]
+        error "wrong or missing parameters: ':lang'"
+        return nil
+      end
 
       @result = []
       @translator.async.translate(@format, params)
       wait :return
       res = Hash.new("")
       res = @result.shift
+
       if @result
         @result.each do |hash|
           res["text"] += hash["text"]
@@ -60,16 +75,21 @@ module YandexTranslator
     def get_languages(params = nil)
       @result = []
       params ||= Hash.new
-      @translator.getLangs(@format, params)
+      @translator.async.getLangs(@format, params)
       wait :return
-      @result
+      @result.shift
     end
 
     def detect(params)
-      raise ArgumentError, "text parameter missing" unless params[:text]
+      unless params[:text]
+        error "text parameter missing"
+        return nil
+      end
+      
       @result = []
-      @translator.detect(@format, params)
+      @translator.async.detect(@format, params)
       wait :return
+      @result = @result.shift if @result.size == 1
       @result
     end
 
@@ -85,7 +105,10 @@ module YandexTranslator
     def __return_responses(topic, response, index)
 
       if response["message"]
-        raise YandexTranslator::ReturnCodeException, response["message"]
+        error response["message"]
+        @result.push nil
+        signal :return
+        return
       end
 
       @counter += 1
@@ -101,5 +124,6 @@ module YandexTranslator
       @responses_num = responses.length
       signal :got_responses, responses
     end
+
   end
 end

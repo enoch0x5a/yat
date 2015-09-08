@@ -9,6 +9,8 @@ $EXIT_OK = 0
 $EXIT_ECMDLINE = 3
 $EXIT_EFAIL = 4
 
+# Celluloid.logger = nil
+
 def show_help
   print File.basename(__FILE__, '.rb')
   puts <<-HELP
@@ -46,11 +48,9 @@ def show_help
 
 end
 
-def list_languages(translator, quiet, to_lang)
-
-  res = translator.get_languages(ui: to_lang || 'en').shift
+def get_languages(translator, quiet, to_lang)
+  res = translator.get_languages(ui: to_lang || 'en')
   res["langs"].each { |short, long| puts "#{short}=>#{long} " }
-  exit($EXIT_OK)
 end
 
 begin
@@ -72,7 +72,7 @@ begin
   config_file = nil
   new_config = nil
 
-  opts.each { |opt, arg| 
+  opts.each { |opt, arg|
     case opt
     when '--help'
       show_help
@@ -100,6 +100,7 @@ begin
     YandexTranslator.configure.api_key = key
     
   end
+  
   raise GetoptLong::MissingArgument, "Please, specify api key" if YandexTranslator.configuration.api_key.nil?
 
   if make_config
@@ -112,13 +113,14 @@ begin
     }
   end
 
+  if to_lang.nil? && !list_languages
+    raise GetoptLong::MissingArgument, "Please, specify language for output" 
+  end
+  
   translator = YandexTranslator::Yat.new
   if list_languages
-    list_languages(translator, quiet, to_lang)
-  end
-
-  if to_lang.nil?
-    raise GetoptLong::MissingArgument, "Please, specify language for output" 
+    get_languages(translator, quiet, to_lang)
+    exit($EXIT_OK)
   end
   
   str = String.new
@@ -132,12 +134,8 @@ rescue GetoptLong::MissingArgument, GetoptLong::InvalidOption => exc
   show_help
   exit($EXIT_ECMDLINE)
 
-rescue YandexTranslator::ReturnCodeException => exc
-  $stderr.puts "Error: #{exc.message}"
-  exit($EXIT_EFAIL)
-
-rescue YandexTranslator::NoApiKey => exc
-  $stderr.puts "Error: #{exc.message}"
+rescue Celluloid::TaskTerminated => exc
+  $stderr.puts "!Error: #{exc.message}"
   exit($EXIT_EFAIL)
 
 rescue Errno::ENOENT => exc
